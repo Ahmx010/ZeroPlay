@@ -1,0 +1,32 @@
+export const fallbackNews = [
+  {
+    id: "fallback-bbc-football",
+    headline: "BBC Sport football headlines",
+    description: "Open BBC Sport for the latest football headlines, scores, and analysis.",
+    source: "BBC Sport",
+    league: "Football",
+    published: null,
+    image: "https://a.espncdn.com/i/leaguelogos/soccer/500/23.png",
+    url: "https://www.bbc.com/sport/football",
+  },
+  {
+    id: "fallback-sky-football",
+    headline: "Sky Sports football headlines",
+    description: "Open Sky Sports for current football news, transfers, and videos.",
+    source: "Sky Sports",
+    league: "Football",
+    published: null,
+    image: "https://a.espncdn.com/i/leaguelogos/soccer/500/15.png",
+    url: "https://www.skysports.com/football",
+  },
+  {
+    id: "fallback-guardian-football",
+    headline: "The Guardian football headlines",
+    description: "Open The Guardian for football news, features, and live reaction.",
+    source: "The Guardian",
+    league: "Football",
+    published: null,
+    image: "https://a.espncdn.com/i/leaguelogos/soccer/500/10.png",
+    url: "https://www.theguardian.com/football",
+  },
+];
