@@ -1,31 +1,55 @@
-const { teams } = require("../data/store");
+const { supabase, hasSupabaseConfig } = require("./supabaseClient");
 
-function getAllTeams() {
-    return teams;
+const TEAMS_TABLE = "teams";
+
+function assertSupabaseReady() {
+  if (!hasSupabaseConfig || !supabase) {
+    const error = new Error("Supabase is not configured. Check backend/server/.env.");
+    error.statusCode = 500;
+    throw error;
+  }
 }
 
-function getTeamById(id) {
-    return teams.find((team) => team.id === id);
+function handleSupabaseError(error, fallbackMessage) {
+  if (!error) {
+    return;
+  }
+
+  const nextError = new Error(error.message || fallbackMessage);
+  nextError.statusCode = 500;
+  nextError.code = error.code;
+  nextError.details = error.details;
+  throw nextError;
 }
 
-function createTeam(teamData) {
-    const nextId =
-        teams.length === 0 ? 1 : Math.max(...teams.map((team) => team.id)) + 1;
+async function getAllTeams() {
+  assertSupabaseReady();
 
-    const newTeam = {
-        id: nextId,
-        name: teamData.name.trim(),
-        sport: teamData.sport.trim(),
-        city: teamData.city ? teamData.city.trim() : "",
-    };
+  const { data, error } = await supabase
+    .from(TEAMS_TABLE)
+    .select("*")
+    .order("id", { ascending: true });
 
-    teams.push(newTeam);
+  handleSupabaseError(error, "Could not load teams from Supabase.");
 
-    return newTeam;
+  return data || [];
+}
+
+async function getTeamById(id) {
+  assertSupabaseReady();
+
+  const { data, error } = await supabase
+    .from(TEAMS_TABLE)
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+
+  handleSupabaseError(error, "Could not load team from Supabase.");
+
+  return data;
 }
 
 module.exports = {
-    getAllTeams,
-    getTeamById,
-    createTeam,
+  getAllTeams,
+  getTeamById,
 };

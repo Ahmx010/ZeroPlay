@@ -1,18 +1,47 @@
-const leagues = {
-  "premier-league": "eng.1",
-  "la-liga": "esp.1",
-  "serie-a": "ita.1",
-  bundesliga: "ger.1",
-  "ligue-1": "fra.1",
-};
+const soccerLeagues = [
+  {
+    slug: "premier-league",
+    code: "eng.1",
+    name: "Premier League",
+    country: "England",
+  },
+  {
+    slug: "la-liga",
+    code: "esp.1",
+    name: "La Liga",
+    country: "Spain",
+  },
+  {
+    slug: "serie-a",
+    code: "ita.1",
+    name: "Serie A",
+    country: "Italy",
+  },
+  {
+    slug: "bundesliga",
+    code: "ger.1",
+    name: "Bundesliga",
+    country: "Germany",
+  },
+  {
+    slug: "ligue-1",
+    code: "fra.1",
+    name: "Ligue 1",
+    country: "France",
+  },
+];
 
-const leagueNames = {
-  "premier-league": "Premier League",
-  "la-liga": "La Liga",
-  "serie-a": "Serie A",
-  bundesliga: "Bundesliga",
-  "ligue-1": "Ligue 1",
-};
+const leagues = Object.fromEntries(
+  soccerLeagues.map((league) => [league.slug, league.code])
+);
+
+const leagueNames = Object.fromEntries(
+  soccerLeagues.map((league) => [league.slug, league.name])
+);
+
+function getSoccerLeagues() {
+  return soccerLeagues.map((league) => ({ ...league }));
+}
 
 async function getLeagueGames(leagueName) {
   try {
@@ -75,4 +104,5 @@ async function getLeagueGames(leagueName) {
 
 module.exports = {
   getLeagueGames,
+  getSoccerLeagues,
 };

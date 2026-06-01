@@ -1,39 +1,51 @@
 const express = require("express");
 const teamService = require("../services/teamService");
-const { validateTeam } = require("../utils/validators");
 
 const router = express.Router();
 
-router.get("/", (req, res) => {
-    res.status(200).json(teamService.getAllTeams());
+function sendRouteError(res, error) {
+    res.status(error.statusCode || 500).json({
+        success: false,
+        message: error.message || "Team request failed",
+        code: error.code,
+        details: error.details,
+    });
+}
+
+router.get("/", async (req, res) => {
+    try {
+        const teams = await teamService.getAllTeams();
+        return res.status(200).json(teams);
+    } catch (error) {
+        return sendRouteError(res, error);
+    }
 });
 
-router.get("/:id", (req, res) => {
+router.get("/:id", async (req, res) => {
     const id = Number(req.params.id);
 
     if (!Number.isInteger(id)) {
         return res.status(400).json({ error: "Invalid team id" });
     }
 
-    const team = teamService.getTeamById(id);
+    try {
+        const team = await teamService.getTeamById(id);
 
-    if (!team) {
-        return res.status(404).json({ error: "Team not found" });
+        if (!team) {
+            return res.status(404).json({ error: "Team not found" });
+        }
+
+        return res.json(team);
+    } catch (error) {
+        return sendRouteError(res, error);
     }
-
-    return res.json(team);
 });
 
-router.post("/", (req, res) => {
-    const error = validateTeam(req.body);
-
-    if (error) {
-        return res.status(400).json({ error });
-    }
-
-    const newTeam = teamService.createTeam(req.body);
-
-    return res.status(201).json(newTeam);
+router.post("/", async (req, res) => {
+    return res.status(405).json({
+        success: false,
+        message: "Manual team creation is disabled. Use GET /admin/sync-teams to synchronize teams from ESPN.",
+    });
 });
 
 module.exports = router;

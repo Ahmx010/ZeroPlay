@@ -5,11 +5,17 @@ const cors = require("cors");
 const morgan = require("morgan");
 const rateLimit = require("express-rate-limit");
 
+const authRouter = require("./routes/auth");
 const teamsRouter = require("./routes/teams");
 const gamesRouter = require("./routes/games");
+const favoritesRouter = require("./routes/favorites");
 const externalRoutes = require("./routes/external");
 const securityRoutes = require("./routes/security");
 const newsRoutes = require("./routes/news");
+const {
+  runTeamSyncJob,
+  startTeamSyncJob,
+} = require("./jobs/teamSyncJob");
 
 const errorHandler = require("./middleware/errorHandler");
 const {
@@ -33,11 +39,14 @@ const apiRoutes = [
   "/",
   "/hello",
   "/health",
+  "/auth",
   "/teams",
   "/games",
+  "/favorites",
   "/external",
   "/security",
   "/news",
+  "/admin/sync-teams",
   "/supabase-test",
 ];
 
@@ -58,11 +67,31 @@ app.use(express.json());
 app.use(limiter);
 
 // ROUTES
+app.use("/auth", authRouter);
 app.use("/teams", teamsRouter);
 app.use("/games", gamesRouter);
+app.use("/favorites", favoritesRouter);
 app.use("/external", externalRoutes);
 app.use("/security", securityRoutes);
 app.use("/news", newsRoutes);
+
+app.get("/admin/sync-teams", async (req, res) => {
+  try {
+    const result = await runTeamSyncJob();
+
+    return res.json({
+      success: result.success,
+      message: result.skipped ? result.message : "Team sync completed.",
+      data: result,
+    });
+  } catch (error) {
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      message: "Team sync failed.",
+      error: error.message,
+    });
+  }
+});
 
 // ROOT ROUTE
 app.get("/", (req, res) => {
@@ -168,6 +197,25 @@ app.get("/supabase-test", async (req, res) => {
 app.use(errorHandler);
 
 // START SERVER
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
+
+if (process.env.TEAM_SYNC_AUTO_START !== "false") {
+  startTeamSyncJob();
+}
+
+server.on("error", (error) => {
+  if (error.code === "EADDRINUSE") {
+    console.error(`Port ${PORT} is already in use. Stop the existing server or use another PORT.`);
+  } else {
+    console.error("Server failed to start:", error);
+  }
+
+  process.exitCode = 1;
+});
+
+module.exports = {
+  app,
+  server,
+};
