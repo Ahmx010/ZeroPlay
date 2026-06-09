@@ -1,23 +1,38 @@
 # dependencies
 node_modules/
 
-# env files
+# environment files
 .env
 .env.*
+!.env.example
+!**/.env.example
 
-# build
+# build and coverage output
 dist/
 build/
+coverage/
 
 # logs
+logs/
 *.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
 
-# vscode
+# local/private notes and archives
+private/
+internal/
+docs/internal/
+backend/archives/
+*.local
+
+# editor/system files
 .vscode/
+.idea/
+.DS_Store
 
-# frontend
+# package-level artifacts
 frontend/node_modules/
 frontend/dist/
-
-# backend
 backend/node_modules/
+backend/server/node_modules/

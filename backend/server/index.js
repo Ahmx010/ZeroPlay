@@ -4,6 +4,7 @@ const express = require("express");
 const cors = require("cors");
 const morgan = require("morgan");
 const rateLimit = require("express-rate-limit");
+const crypto = require("crypto");
 
 const authRouter = require("./routes/auth");
 const teamsRouter = require("./routes/teams");
@@ -21,7 +22,6 @@ const errorHandler = require("./middleware/errorHandler");
 const {
   supabase,
   supabaseUrl,
-  supabaseKeyType,
   hasSupabaseConfig,
   getSupabaseRestHeaders,
 } = require("./services/supabaseClient");
@@ -29,6 +29,10 @@ const {
 const app = express();
 
 const PORT = process.env.PORT || 5000;
+const isProduction = process.env.NODE_ENV === "production";
+const adminSyncToken = process.env.ADMIN_SYNC_TOKEN;
+const enableSupabaseDiagnostics =
+  process.env.ENABLE_SUPABASE_DIAGNOSTICS === "true" && !isProduction;
 const fetchJson = (...args) => {
   const fetcher = global.fetch || ((...fetchArgs) =>
     import("node-fetch").then(({ default: fetch }) => fetch(...fetchArgs)));
@@ -46,8 +50,8 @@ const apiRoutes = [
   "/external",
   "/security",
   "/news",
-  "/admin/sync-teams",
-  "/supabase-test",
+  ...(adminSyncToken ? ["/admin/sync-teams"] : []),
+  ...(enableSupabaseDiagnostics ? ["/supabase-test"] : []),
 ];
 
 // RATE LIMITER
@@ -75,7 +79,56 @@ app.use("/external", externalRoutes);
 app.use("/security", securityRoutes);
 app.use("/news", newsRoutes);
 
-app.get("/admin/sync-teams", async (req, res) => {
+function getAdminSyncToken(req) {
+  const headerToken = req.get("x-admin-token");
+
+  if (headerToken) {
+    return headerToken;
+  }
+
+  const authorization = req.get("authorization") || "";
+  const [scheme, token, ...extraParts] = authorization.trim().split(/\s+/);
+
+  if (scheme?.toLowerCase() === "bearer" && token && extraParts.length === 0) {
+    return token;
+  }
+
+  return null;
+}
+
+function isValidAdminSyncToken(token) {
+  if (!adminSyncToken || !token) {
+    return false;
+  }
+
+  const expected = Buffer.from(adminSyncToken);
+  const received = Buffer.from(token);
+
+  return (
+    expected.length === received.length &&
+    crypto.timingSafeEqual(expected, received)
+  );
+}
+
+function requireAdminSyncToken(req, res, next) {
+  if (!adminSyncToken) {
+    return res.status(503).json({
+      success: false,
+      message: "Manual team sync is disabled.",
+    });
+  }
+
+  if (!isValidAdminSyncToken(getAdminSyncToken(req))) {
+    return res.status(401).json({
+      success: false,
+      message: "Missing or invalid admin sync token.",
+    });
+  }
+
+  return next();
+}
+
+async function handleTeamSync(req, res) {
   try {
     const result = await runTeamSyncJob();
 
@@ -91,7 +144,10 @@ app.get("/admin/sync-teams", async (req, res) => {
       error: error.message,
     });
   }
-});
+}
+
+app.get("/admin/sync-teams", requireAdminSyncToken, handleTeamSync);
+app.post("/admin/sync-teams", requireAdminSyncToken, handleTeamSync);
 
 // ROOT ROUTE
 app.get("/", (req, res) => {
@@ -117,81 +173,47 @@ app.get("/health", (req, res) => {
     success: true,
     service: "ZeroPlay API",
     supabaseConfigured: hasSupabaseConfig,
-    supabaseKeyType,
     routes: apiRoutes,
   });
 });
 
-// SUPABASE TEST ROUTE
-app.get("/supabase-test", async (req, res) => {
-  if (!hasSupabaseConfig || !supabase) {
-    return res.status(500).json({
-      success: false,
-      message: "Supabase is not configured. Check SUPABASE_URL and SUPABASE_KEY in backend/server/.env.",
-    });
-  }
+// Local-only Supabase diagnostics. Keep disabled in production and public demos.
+if (enableSupabaseDiagnostics) {
+  app.get("/supabase-test", async (req, res) => {
+    if (!hasSupabaseConfig || !supabase) {
+      return res.status(500).json({
+        success: false,
+        message: "Supabase is not configured. Check the backend Supabase environment variables.",
+      });
+    }
 
-  try {
-    const tableName = req.query.table;
+    try {
+      const response = await fetchJson(`${supabaseUrl}/auth/v1/settings`, {
+        headers: getSupabaseRestHeaders(),
+      });
 
-    if (tableName) {
-      if (!/^[a-zA-Z0-9_]+$/.test(tableName)) {
-        return res.status(400).json({
+      if (!response.ok) {
+        return res.status(response.status).json({
           success: false,
-          message: "Table names can only contain letters, numbers, and underscores.",
-        });
-      }
-
-      const { data, error } = await supabase
-        .from(tableName)
-        .select("*")
-        .limit(5);
-
-      if (error) {
-        return res.status(500).json({
-          success: false,
-          message: `Supabase connected, but the ${tableName} table query failed.`,
-          error: error.message,
-          code: error.code,
-          details: error.details,
+          message: "Supabase project responded, but the connection check failed.",
+          status: response.status,
+          statusText: response.statusText,
         });
       }
 
       return res.json({
         success: true,
-        message: `Supabase connected and the ${tableName} table is readable.`,
-        data,
+        message: "Supabase connection is live.",
       });
-    }
-
-    const response = await fetchJson(`${supabaseUrl}/auth/v1/settings`, {
-      headers: getSupabaseRestHeaders(),
-    });
-
-    if (!response.ok) {
-      return res.status(response.status).json({
+    } catch (error) {
+      return res.status(500).json({
         success: false,
-        message: "Supabase project responded, but the connection check failed.",
-        status: response.status,
-        statusText: response.statusText,
+        message: "Supabase test failed.",
+        error: error.message,
       });
     }
-
-    res.json({
-      success: true,
-      message: "Supabase connection is live.",
-      projectUrl: supabaseUrl,
-      keyType: supabaseKeyType,
-      tableCheck: "Use /supabase-test?table=your_table_name to test a specific database table.",
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Supabase test failed.",
-      error: error.message,
-    });
-  }
-});
+  });
+}
 
 // GLOBAL ERROR HANDLER
 app.use(errorHandler);

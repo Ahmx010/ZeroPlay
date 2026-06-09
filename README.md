@@ -1,130 +1,105 @@
 # ZeroPlay
 
-## Overview
+ZeroPlay is a production-minded full-stack soccer intelligence app built to demonstrate modern frontend engineering, Express API design, Supabase authentication, database-backed personalization, and external sports-data integration.
 
-ZeroPlay is a full-stack football intelligence platform built to help fans analyze teams, compare clubs, track matches, and explore football insights through a modern data-driven experience.
+The public repository is intentionally shaped as a portfolio project: it keeps the real application architecture visible while keeping secrets, internal notes, local archives, and implementation-sensitive planning out of version control.
 
-The platform combines live football data, analytics, authentication, and community-focused features into a single application.
+## Highlights
 
----
-
-## Features
-
-### Authentication & User Management
-
-* User registration and login
-* Protected routes
-* Persistent authentication sessions
-* User profiles
-* Account settings management
-
-### Football Intelligence
-
-* Team analytics dashboard
-* Club performance insights
-* Team comparison tools
-* Match intelligence system
-* Team rankings and statistics
-
-### Data Integrations
-
-* ESPN football data integration
-* Automated team synchronization
-* External sports API integrations
-* Real-time football information
-
-### Platform Features
-
-* Favorites tracking
-* Dynamic dashboards
-* Responsive UI
-* Scalable architecture
-
----
+- React + Vite single-page app with league, team, games, news, profile, settings, and protected account flows.
+- Express API with route modules, middleware, shared response helpers, validation, and service-layer boundaries.
+- Supabase Auth integration for signup, login, logout, session restore, account updates, and JWT-protected requests.
+- User-scoped favorites backed by authenticated API calls and database access patterns designed for row-level security.
+- Sports-data integration through public ESPN soccer endpoints plus a refresh script for generated league/team data.
+- Security-minded backend defaults: rate limiting, bearer-token validation, environment-only secrets, admin sync token protection, and disabled-by-default diagnostics.
 
 ## Tech Stack
 
-### Frontend
-
-* React
-* JavaScript
-* React Router
-* Context API
-
-### Backend
-
-* Node.js
-* Express.js
-
-### Database & Authentication
-
-* Supabase
-* PostgreSQL
-* Row Level Security (RLS)
-
-### Development Tools
-
-* Git
-* GitHub
-* Docker
-* VS Code
-
----
+| Layer | Tools |
+| --- | --- |
+| Frontend | React, Vite, React Router, CSS |
+| Backend | Node.js, Express, CommonJS modules |
+| Auth and data | Supabase Auth, Supabase client, PostgreSQL/RLS-oriented access patterns |
+| Integrations | ESPN public soccer APIs |
+| Security | Express rate limiting, JWT verification, protected routes, env-based secret loading |
 
 ## Architecture
 
-Frontend (React)
+```text
+frontend/src/pages + frontend/src/components
+  -> frontend/src/context/AuthContext.jsx
+  -> backend/server/routes
+  -> backend/server/middleware/authenticate.js
+  -> backend/server/services
+  -> Supabase Auth / Supabase data / ESPN APIs
+```
 
-↓
+The repo keeps the important engineering surfaces public:
 
-REST API (Express)
+- `backend/server/routes/` for API entry points.
+- `backend/server/middleware/` for authentication and error handling.
+- `backend/server/services/` for Supabase, auth, favorites, teams, and external API logic.
+- `frontend/src/components/` and `frontend/src/pages/` for the user-facing React app.
+- `frontend/src/context/` for session persistence and authenticated frontend state.
 
-↓
+Detailed production secrets, private notes, local archives, and internal roadmap material are intentionally excluded.
 
-Supabase Database
+## Security Posture
 
-↓
+- Real credentials are loaded from `.env` files only and are ignored by Git.
+- Public `.env.example` files document required variables with placeholder values.
+- Backend Supabase service-role credentials stay server-side only.
+- Protected API routes require `Authorization: Bearer <accessToken>`.
+- Auth middleware verifies Supabase JWTs before attaching user context.
+- Favorites and account updates are scoped to the authenticated user.
+- Manual team sync requires an admin token through `x-admin-token` or `Authorization: Bearer`.
+- Supabase diagnostics are disabled by default and cannot be enabled in production mode.
 
-External Football APIs
+## Local Setup
 
----
+Install dependencies:
 
-## Current Roadmap
+```bash
+cd backend/server
+npm install
+cd ../../frontend
+npm install
+```
 
-Upcoming features include:
+Create local environment files:
 
-* Match IQ Prediction Engine
-* Team DNA Profiles
-* Prediction League
-* Match Threads
-* News Timeline
-* Club Intelligence Reports
-* Community Discussions
-* Advanced Analytics
-* Power Rankings
+```bash
+copy backend\server\.env.example backend\server\.env
+copy frontend\.env.example frontend\.env
+```
 
----
+Start the backend:
 
-## Security
+```bash
+cd backend/server
+npm run dev
+```
 
-ZeroPlay follows secure development practices including:
+Start the frontend:
 
-* Authentication middleware
-* Protected routes
-* Database access controls
-* Environment variable management
-* Input validation
+```bash
+cd frontend
+npm run dev
+```
 
----
+Build the frontend:
 
-## Author
+```bash
+cd frontend
+npm run build
+```
 
-Ahmed Abdelmagid
+## Environment Variables
 
-Cybersecurity Student @ Old Dominion University
+Backend variables are documented in `backend/server/.env.example`. The only frontend variable currently required is `VITE_API_BASE_URL`, documented in `frontend/.env.example`.
 
-Building:
+Do not expose backend Supabase service-role keys in frontend code or browser-visible `VITE_*` variables.
 
-* ZeroPlay (Sports Analytics Platform)
-* FAIZSEC (Security Platform)
-* RizzK (Fintech Platform)
+## Reviewer Notes
+
+ZeroPlay is designed to be inspected as a full-stack portfolio project. The public code shows authentication flows, API boundaries, data-access patterns, background sync structure, and frontend state management without publishing real secrets or internal business planning.

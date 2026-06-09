@@ -1,32 +1,32 @@
 # ZeroPlay Auth And Favorites
 
-## New Files
+This document summarizes the public auth contract for local development and code review. It intentionally focuses on request flow and ownership boundaries instead of publishing production schema details.
 
-- `database/auth_schema.sql`: Supabase SQL for `profiles`, `favorites`, profile creation trigger, indexes, foreign keys, grants, and row level security policies.
-- `middleware/authenticate.js`: Express middleware that reads `Authorization: Bearer <token>`, verifies the token with Supabase Auth, attaches `req.user`, `req.accessToken`, and a user-scoped Supabase client to the request.
-- `routes/auth.js`: Route handlers for signup, login, logout, and the protected current-user endpoint.
-- `routes/favorites.js`: Protected favorites route handlers.
-- `services/authService.js`: Supabase Auth business logic for signup, login, logout, and `GET /auth/me`.
-- `services/favoriteService.js`: Favorites data access logic, always scoped to the authenticated user.
-- `utils/responses.js`: Shared JSON response helpers for `{ "success": true, "data": ... }` and `{ "success": false, "message": "..." }`.
+## Public Engineering Surface
+
+- `middleware/authenticate.js` reads `Authorization: Bearer <token>`, verifies the Supabase Auth JWT, and attaches authenticated user context to the request.
+- `routes/auth.js` exposes signup, login, logout, current-user lookup, and account update endpoints.
+- `routes/favorites.js` exposes protected favorites endpoints.
+- `services/authService.js` and `services/favoriteService.js` keep Supabase and data-access logic out of route handlers.
+- `utils/responses.js` keeps JSON response shapes consistent across the API.
 
 ## Request Flow
 
-1. Frontend signs up or logs in through `POST /auth/signup` or `POST /auth/login`.
-2. Express calls Supabase Auth through `authService.js`.
-3. Supabase Auth hashes passwords, stores auth users in `auth.users`, issues JWTs and refresh tokens, and handles email verification according to the Supabase project settings.
-4. The frontend stores the returned access token and sends it on protected requests as `Authorization: Bearer <accessToken>`.
-5. `middleware/authenticate.js` validates the JWT with Supabase Auth using `supabase.auth.getUser(token)`.
-6. Protected services use `req.supabase`, a Supabase client carrying the user's JWT, so database RLS policies apply to the authenticated user.
-7. Express returns consistent JSON responses.
+1. The frontend calls `POST /auth/signup` or `POST /auth/login`.
+2. Express delegates credential handling to Supabase Auth through `authService.js`.
+3. Supabase Auth handles password hashing, session issuance, and email verification settings.
+4. The frontend stores the returned access token according to the selected session mode.
+5. Protected requests send `Authorization: Bearer <accessToken>`.
+6. `middleware/authenticate.js` validates the JWT before protected services run.
+7. Data operations are scoped to the authenticated user, with database policies expected to enforce the same ownership boundary.
 
 ## Favorites Ownership
 
-`favorites.user_id` references `profiles.id`, which is the same UUID as `auth.users.id`. On every protected favorites request, Express uses `req.user.id` from the verified Supabase JWT. The route never accepts `user_id` from the client. The service filters and writes favorites with that authenticated user id, and Supabase RLS policies enforce the same ownership rule in the database.
+Favorites are always resolved from the verified user context. The client never submits a user id for ownership decisions, and the service layer scopes reads/writes to the authenticated account.
 
-## Thunder Client Requests
+## Local Request Examples
 
-Set an environment variable named `baseUrl` to `http://localhost:5000`.
+Set a local client variable named `baseUrl` to `http://localhost:5000`.
 Set `accessToken` from a successful signup or login response.
 
 ### POST /auth/signup
@@ -43,9 +43,9 @@ Body:
 
 ```json
 {
-  "email": "alex@example.com",
-  "password": "Password123!",
-  "username": "alex_zero"
+  "email": "user@example.com",
+  "password": "<password>",
+  "username": "zero_user"
 }
 ```
 
@@ -63,8 +63,8 @@ Body:
 
 ```json
 {
-  "email": "alex@example.com",
-  "password": "Password123!"
+  "email": "user@example.com",
+  "password": "<password>"
 }
 ```
 
@@ -103,10 +103,10 @@ Body:
 
 ```json
 {
-  "username": "alex_zero",
-  "email": "alex@example.com",
-  "password": "NewPassword123!",
-  "currentPassword": "Password123!"
+  "username": "zero_user",
+  "email": "new-user@example.com",
+  "password": "<new-password>",
+  "currentPassword": "<current-password>"
 }
 ```
 
