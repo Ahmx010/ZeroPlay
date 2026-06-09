@@ -4,11 +4,14 @@ import Home from "./pages/Home";
 import Games from "./pages/Games";
 import Login from "./pages/Login";
 import League from "./pages/League";
+import Profile from "./pages/Profile";
+import Settings from "./pages/Settings";
 import Team from "./pages/Team";
 import Teams from "./pages/Teams";
 import News from "./pages/News";
 
 import Navbar from "./components/Navbar";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 function App() {
   return (
@@ -27,6 +30,24 @@ function App() {
         <Route path="/news" element={<News />} />
 
         <Route path="/login" element={<Login />} />
+
+        <Route
+          path="/profile"
+          element={(
+            <ProtectedRoute>
+              <Profile />
+            </ProtectedRoute>
+          )}
+        />
+
+        <Route
+          path="/settings"
+          element={(
+            <ProtectedRoute>
+              <Settings />
+            </ProtectedRoute>
+          )}
+        />
 
         <Route
           path="/league/:leagueName"
